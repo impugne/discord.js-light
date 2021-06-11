@@ -493,20 +493,6 @@ Discord.GuildTemplate.prototype._patch = function(data) {
 	return this;
 };
 
-Discord.ClientApplication.prototype._patch = function(data) {
-	this.id = data.id;
-	this.name = data.name ?? this.name ?? null;
-	this.description = data.description ?? this.description ?? null;
-	this.icon = data.icon ?? this.icon ?? null;
-	this.flags = "flags" in data ? new Discord.ApplicationFlags(data.flags) : this.flags;
-	this.cover = data.cover_image ?? this.cover ?? null;
-	this.rpcOrigins = data.rpc_origins ?? this.rpcOrigins ?? [];
-	this.botRequireCodeGrant = data.bot_require_code_grant ?? this.botRequireCodeGrant ?? null;
-	this.botPublic = data.bot_public ?? this.botPublic ?? null;
-	this.owner = data.team ? new Discord.Team(this.client, data.team) : data.owner ? this.client.users.add(data.owner, this.client.users.cache.has(data.owner.id)) : this.owner ?? null;
-	return this;
-};
-
 Discord.TeamMember.prototype._patch = function(data) {
 	this.permissions = data.permissions;
 	this.membershipState = Discord.Constants.MembershipStates[data.membership_state];
