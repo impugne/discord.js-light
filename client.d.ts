@@ -56,7 +56,6 @@ declare module "discord.js-light" {
 		cacheRoles?:boolean
 		cacheOverwrites?:boolean
 		cacheEmojis?:boolean
-		cacheMembers?:boolean
 		disabledEvents?: Array<string>
 	}
 	interface ClientEvents {
@@ -107,7 +106,7 @@ declare module "discord.js-light" {
 		fetch(options: ChannelFetchOptions): Promise<Discord.Collection<Discord.Snowflake, Discord.GuildChannel>>
 	}
 	interface GuildMemberManager {
-		forge(id: Discord.Snowflake): Discord.GuildMember
+		forge(id: Discord.Snowflake): Discord.GuildMemberManager
 		fetch(): Promise<Discord.Collection<Discord.Snowflake, Discord.GuildMember>>
 		fetch(user: Discord.Snowflake): Promise<Discord.GuildMember>
 		fetch(user: Discord.Snowflake, cache: boolean): Promise<Discord.GuildMember>

@@ -61,7 +61,7 @@ npm install discord/erlpack
 npm install utf-8-validate
 ```
 
-Additionally, using an alternative memory allocator such as [jemalloc](http://jemalloc.net) can further reduce memory usage by avoiding fragmentation in exchange for slightly higher cpu usage.
+Additionally, using an alternative memory allocator such as [jemalloc](http://jemalloc.net/) can further reduce memory usage by avoiding fragmentation in exchange for slightly higher cpu usage.
 
 ### Usage example
 
@@ -103,8 +103,7 @@ The following client options are available to control caching behavior:
 | cacheRoles | boolean | false | Enables caching of all Roles at login |
 | cacheEmojis | boolean | false | Enables caching of all Emojis at login |
 | cachePresences | boolean | false | Enables caching of all Presences. If not enabled, Presences will be cached only for cached Users |
-| cacheMembers | boolean | false | Enables caching of Users and Members when possible |
-| disabledEvents | array | [] | An array of events to ignore ([Discord events](https://github.com/discordjs/discord.js/blob/master/src/util/Constants.js#L339), not Discord.JS events). Use this in combination with intents for fine tuning which events your bot should process |
+| disabledEvents | array | [] | An array of Discord events to ignore. Use this in combination with intents for fine tuning of which events your bot should process |
 
 This library implements its own partials system, therefore the `partials` client option is not available. All other discord.js client options continue to be available and should work normally.
 
@@ -138,7 +137,7 @@ Presences have a large impact on memory usage and are not needed most of the tim
 
 ### Users and Members
 
-The bot itself is always cached in `client.user` and `guild.me`. All other Users and Members must be manually fetched if this cache is disabled. If enabled, fetching is still recommended because the cache may be incomplete unless you manually fetch all members in all guilds. Events that include some User and/or Member data usually do not require fetching as the event itself already contains enough information to provide a complete User and/or Member object.
+Besides the bot user, all other Users and Members are never automatically cached. Having an incomplete user cache is not very useful most of the time, so we prefer an all-or-nothing approach. The `fetchAllMembers` client option can be used to cache all Users and Members, otherwise they must be manually fetched if required. Events that include some User and/or Member data usually do not require fetching as the event itself already contains enough information to provide a complete User and/or Member object.
 
 ### VoiceStates
 
@@ -426,52 +425,32 @@ This project has come a long way and gone through a lot of testing, however it i
 You can also find me in [discord](https://discord.gg/BpeedKh) (Tim#2373)
 
 ## Bots using discord.js-light
-<!-- markdownlint-disable MD045 -->
+
 | Bot | Servers |
 |-|-|
-| [Birthday Bot](https://top.gg/bot/656621136808902656) | ![](https://top.gg/api/widget/servers/656621136808902656.svg) |
 | [Dio](https://top.gg/bot/565050363313389588) | ![](https://top.gg/api/widget/servers/565050363313389588.svg) |
-| [Truth or Dare](https://top.gg/bot/692045914436796436) | ![](https://top.gg/api/widget/servers/692045914436796436.svg) |
-| [Nagito 2](https://top.gg/bot/741061042343510147) | ![](https://top.gg/api/widget/servers/741061042343510147.svg) |
-| [Friend Time](https://top.gg/bot/471091072546766849) | ![](https://top.gg/api/widget/servers/471091072546766849.svg) |
-| [Bump Reminder](https://top.gg/bot/735147814878969968) | ![](https://top.gg/api/widget/servers/735147814878969968.svg) |
-| [D-Safe](https://discordsafe.com) | ![](https://top.gg/api/widget/servers/461171501715161108.svg) |
-| [QOTD Bot](https://top.gg/bot/713586207119900693) | ![](https://top.gg/api/widget/servers/713586207119900693.svg) |
-| [Suggestions](https://top.gg/bot/474051954998509571) | ![](https://top.gg/api/widget/servers/474051954998509571.svg) |
+| [D-Safe](https://discordsafe.com/) | ![](https://top.gg/api/widget/servers/461171501715161108.svg) |
 | [Filo](https://filobot.xyz) | ![](https://top.gg/api/widget/servers/568083171455795200.svg) |
-| [Alita](https://top.gg/bot/590047618479030272) | ![](https://top.gg/api/widget/servers/590047618479030272.svg)
-| [Kable](https://kable.bot) | ![](https://top.gg/api/widget/servers/699844962057060393.svg) |
 | [Astrobot](https://top.gg/bot/astrobot) | ![](https://top.gg/api/widget/servers/344272098488877057.svg) |
-| [Piña Bot](https://top.gg/bot/744386070552117278) | ![](https://top.gg/api/widget/servers/744386070552117278.svg) |
-| [Monika](https://top.gg/bot/340476335279570945) | ![](https://top.gg/api/widget/servers/340476335279570945.svg) |
-| [Hydra bot](https://hydrabot.xyz) | ![](https://top.gg/api/widget/servers/716708153143590952.svg) |
-| [CalcBot](https://top.gg/bot/674457690646249472) | ![](https://top.gg/api/widget/servers/674457690646249472.svg) |
+| [Art Prompts](https://eledris.com/art-prompts/discord-bot/) | ![](https://top.gg/api/widget/servers/676880644076339228.svg) |
+| [Bump Reminder](https://top.gg/bot/735147814878969968) | ![](https://top.gg/api/widget/servers/735147814878969968.svg) |
 | [Helper](https://top.gg/bot/409538753997307915) | ![](https://top.gg/api/widget/servers/409538753997307915.svg) |
-| [Custom Command](https://ccommandbot.ga) | ![](https://top.gg/api/widget/servers/725721249652670555.svg) |
+| [CalcBot](https://top.gg/bot/674457690646249472) | ![](https://top.gg/api/widget/servers/674457690646249472.svg) |
 | [Scathach](https://discord.bots.gg/bots/724047481561809007) | ![](https://top.gg/api/widget/servers/724047481561809007.svg) |
-| [Melody](https://melodybot.tk) | ![](https://top.gg/api/widget/servers/739725994344316968.svg) |
-| [Foxy 🦊](https://top.gg/bot/731144016686612510) | ![](https://top.gg/api/widget/servers/731144016686612510.svg) |
-| [FlaviBot](https://flavibot.xyz) | ![](https://top.gg/api/widget/servers/684773505157431347.svg) |
-| [Game Tracker](https://game-tracker.js.org) | ![](https://top.gg/api/widget/servers/475421235950518292.svg) |
-| [Anti NSFW](https://top.gg/bot/706054368318980138) | ![](https://top.gg/api/widget/servers/706054368318980138.svg) |
-| [Denky](https://denkybot.ga) | ![](https://top.gg/api/widget/servers/704517722100465746.svg) |
-| [Gerald](https://top.gg/bot/806383966969790494) | ![](https://top.gg/api/widget/servers/806383966969790494.svg) |
+| [Hydra bot](https://hydrabot.xyz/) | ![](https://top.gg/api/widget/servers/716708153143590952.svg) |
+| [Game Tracker](https://game-tracker.js.org/) | ![](https://top.gg/api/widget/servers/475421235950518292.svg) |
+| [Melody](https://melodybot.tk/) | ![](https://top.gg/api/widget/servers/739725994344316968.svg) |
 | [Animal Bot](https://top.gg/bot/716061781172158464) | ![](https://top.gg/api/widget/servers/716061781172158464.svg) |
-| [Slash](https://discord4.fun) | ![](https://top.gg/api/widget/servers/779351928832393277.svg) |
+| [Denky](https://denkybot.ga/) | ![](https://top.gg/api/widget/servers/704517722100465746.svg) |
 | [T_Moderator_Bot](https://top.gg/bot/412003088732389396) | ![](https://top.gg/api/widget/servers/412003088732389396.svg) |
-| [CleverChat](https://top.gg/bot/781834206325243954) | ![](https://top.gg/api/widget/servers/781834206325243954.svg) |
+| [Aeon](https://aeon.js.org/) | ![](https://top.gg/api/widget/servers/635833307510079490.svg) |
 | [Tamaki](https://top.gg/bot/716322665283059754) | ![](https://top.gg/api/widget/servers/716322665283059754.svg) |
-| [Music Boat](https://top.gg/bot/735963752259911752) | ![](https://top.gg/api/widget/servers/735963752259911752.svg) |
-| [Message Viewer](https://top.gg/bot/642052166982303754) | ![](https://top.gg/api/widget/servers/642052166982303754.svg) |
-| [Art Prompts](https://eledris.com/art-prompts/discord-bot) | ![](https://top.gg/api/widget/servers/676880644076339228.svg) |
+| [CleverChat](https://top.gg/bot/781834206325243954) | ![](https://top.gg/api/widget/servers/781834206325243954.svg) |
 | [T_Music_Bot](https://top.gg/bot/421978090823090186) | ![](https://top.gg/api/widget/servers/421978090823090186.svg) |
-| [Kirby!](https://top.gg/bot/770308348766584883) | ![](https://top.gg/api/widget/servers/770308348766584883.svg) |
-| [EcchiBot](https://ecchibot.privateger.me) |  |
-| [Stalk.live](https://stalk.live) |  |
-| [Multipurpose+](https://music.udit.gq) |  |
-| [Corynth](https://github.com/cxllm/corynth) |  |
-| [Stereo](https://github.com/NathanPenwill/Stereo) |  |
-| [Coconut Mall'd](https://github.com/Million900o/coconut-malld) |  |
-| [Discord.js Bot Template](https://github.com/Giuliopime/discordjs-bot-template) |  |
+| [Music Boat](https://topcord.xyz/bot/735963752259911752) | ![](https://top.gg/api/widget/servers/735963752259911752.svg) |
+| [Message Viewer](https://top.gg/bot/642052166982303754) | ![](https://top.gg/api/widget/servers/642052166982303754.svg) |
+| [Infinity](https://top.gg/bot/545926934886875139) |  |
+| [Multipurpose+](https://music.udit.gq/) |  |
+| [Xeno](https://github.com/NathanPenwill/Xeno/) |  |
 
 (using discord.js-light? let me know if you're interested in having your bot listed here)
