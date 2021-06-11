@@ -3,8 +3,10 @@
 const { resolve } = require("path");
 const Permissions = require(resolve(require.resolve("discord.js").replace("index.js", "/util/Permissions.js")));
 const Constants = require(resolve(require.resolve("discord.js").replace("index.js", "/util/Constants.js")));
-const Intents = require(resolve(require.resolve("discord.js").replace("index.js", "/util/Intents.js")));
+const Util = require(resolve(require.resolve("discord.js").replace("index.js", "/util/Util.js")));
+const Base = require(resolve(require.resolve("discord.js").replace("index.js", "/structures/Base.js")));
 const APIMessage = require(resolve(require.resolve("discord.js").replace("index.js", "/structures/APIMessage.js")));
+const { Error: DJSError } = require(resolve(require.resolve("discord.js").replace("index.js", "/errors")));
 
 const RHPath = resolve(require.resolve("discord.js").replace("index.js", "/rest/APIRequest.js"));
 const RH = require(RHPath);
@@ -25,34 +27,7 @@ require.cache[RHPath].exports = class APIRequest extends RH {
 const SHPath = resolve(require.resolve("discord.js").replace("index.js", "/client/websocket/WebSocketShard.js"));
 const SH = require(SHPath);
 require.cache[SHPath].exports = class WebSocketShard extends SH {
-	async emitReady() {
-		const c = this.manager.client;
-		if(c.options.fetchAllMembers && (!c.options.ws.intents || c.options.ws.intents & Intents.FLAGS.GUILD_MEMBERS)) {
-			this.debug("Attempting to fetch all members");
-			const guilds = c.guilds.cache.filter(g => g.shardID === this.id);
-			let n = 0;
-			let g = 0;
-			for(const guild of guilds.values()) {
-				if(!guild.available) {
-					this.debug(`Skipped guild ${guild.id}! Guild not available`);
-					continue;
-				}
-				if(this.ratelimit.remaining < 5) {
-					const left = Math.ceil(this.ratelimit.timer._idleStart + this.ratelimit.timer._idleTimeout - (process.uptime() * 1000)) + 1000;
-					this.debug(`Gateway ratelimit reached, continuing in ${left}ms`);
-					this.debug(`Fetching progress: ${g} guilds / ${n} members`);
-					await new Promise(r => { setTimeout(r, left); });
-				}
-				try {
-					const m = await guild.members.fetch({ time: 15000 });
-					n += m.size;
-					g++;
-				} catch(err) {
-					this.debug(`Failed to fetch all members for guild ${guild.id}! ${err}`);
-				}
-			}
-			this.debug(`Fetched ${guilds.reduce((a, t) => a + t.members.cache.size, 0)} members`);
-		}
+	emitReady() {
 		this.debug("Ready");
 		this.status = Constants.Status.READY;
 		this.emit(Constants.ShardEvents.ALL_READY, this.expectedGuilds.size ? this.expectedGuilds : void 0);
@@ -72,6 +47,113 @@ require.cache[SHPath].exports = class WebSocketShard extends SH {
 			this.readyTimeout = void 0;
 			this.emitReady();
 		}, 15000);
+	}
+	identify() {
+		if(this.manager.client.options.hotreload && this.manager._hotreload) {
+			const data = this.manager._hotreload[this.id];
+			if(data && !this.sessionID) {
+				this.sessionID = data.id;
+				this.closeSequence = this.sequence = data.seq;
+				delete this.manager._hotreload[this.id];
+			}
+		}
+		return super.identify();
+	}
+};
+
+const SHMPath = resolve(require.resolve("discord.js").replace("index.js", "/client/websocket/WebSocketManager.js"));
+const SHM = require(SHMPath);
+require.cache[SHMPath].exports = class WebSocketManager extends SHM {
+	async createShards() {
+		const UNRECOVERABLE_CLOSE_CODES = Object.keys(Constants.WSCodes).slice(1).map(Number);
+		const UNRESUMABLE_CLOSE_CODES = [1000, 4006, 4007];
+
+		// If we don't have any shards to handle, return
+		if (!this.shardQueue.size) {return false;}
+
+		const [shard] = this.shardQueue;
+
+		this.shardQueue.delete(shard);
+
+		if (!shard.eventsAttached) {
+			shard.on(Constants.ShardEvents.ALL_READY, unavailableGuilds => {
+				this.client.emit(Constants.Events.SHARD_READY, shard.id, unavailableGuilds);
+
+				if (!this.shardQueue.size) {this.reconnecting = false;}
+				this.checkShardsReady();
+			});
+
+			shard.on(Constants.ShardEvents.CLOSE, event => {
+				if (event.code === 1000 ? this.destroyed : UNRECOVERABLE_CLOSE_CODES.includes(event.code)) {
+					this.client.emit(Constants.Events.SHARD_DISCONNECT, event, shard.id);
+					this.debug(Constants.WSCodes[event.code], shard);
+					return;
+				}
+
+				if (UNRESUMABLE_CLOSE_CODES.includes(event.code)) {
+					// These event codes cannot be resumed
+					shard.sessionID = null;
+				}
+
+				this.client.emit(Constants.Events.SHARD_RECONNECTING, shard.id);
+
+				this.shardQueue.add(shard);
+
+				if (shard.sessionID) {
+					this.debug("Session ID is present, attempting an immediate reconnect...", shard);
+					this.reconnect(true);
+				} else {
+					shard.destroy({
+						reset: true,
+						emit: false,
+						log: false
+					});
+					this.reconnect();
+				}
+			});
+
+			shard.on(Constants.ShardEvents.INVALID_SESSION, () => {
+				this.client.emit(Constants.Events.SHARD_RECONNECTING, shard.id);
+			});
+
+			shard.on(Constants.ShardEvents.DESTROYED, () => {
+				this.debug("Shard was destroyed but no WebSocket connection was present! Reconnecting...", shard);
+
+				this.client.emit(Constants.Events.SHARD_RECONNECTING, shard.id);
+
+				this.shardQueue.add(shard);
+				this.reconnect();
+			});
+
+			shard.eventsAttached = true;
+		}
+
+		this.shards.set(shard.id, shard);
+
+		try {
+			await shard.connect();
+		} catch (error) {
+			if (error && error.code && UNRECOVERABLE_CLOSE_CODES.includes(error.code)) {
+				throw new DJSError(Constants.WSCodes[error.code]);
+				// Undefined if session is invalid, error event for regular closes
+			} else if (!error || error.code) {
+				this.debug("Failed to connect to the gateway, requeueing...", shard);
+				this.shardQueue.add(shard);
+			} else {
+				throw error;
+			}
+		}
+		// If we have multiple shards add a 5s delay if identifying or no delay if resuming
+		if (this.shardQueue.size && Object.keys(this._hotreload || {}).length) {
+			this.debug(`Shard Queue Size: ${this.shardQueue.size} with sessions; continuing immediately`);
+			return this.createShards();
+		} else if (this.shardQueue.size) {
+			this.debug(`Shard Queue Size: ${this.shardQueue.size}; continuing in 5s seconds...`);
+			await Util.delayFor(5000);
+			return this.createShards();
+		}
+
+		return true;
 	}
 };
 
@@ -179,10 +261,35 @@ require.cache[GCPath].exports = class GuildChannel extends GC {
 	}
 	get deletable() {
 		if(this.deleted) { return false; }
-		if(!this.client.options.cacheRoles && !this.guild.roles.cache.size) { return false; }
+		if(!this.client.options.cacheRoles) { return true; }
 		return this.permissionsFor(this.client.user).has(Permissions.FLAGS.MANAGE_CHANNELS, false);
 	}
 };
+
+const ItPath = resolve(require.resolve("discord.js").replace("index.js", "/structures/Interaction.js"));
+const It = require(ItPath);
+const It2 = class Interaction extends Base {
+	constructor(client, data) {
+		super(client);
+		this.type = Constants.InteractionTypes[data.type];
+		this.id = data.id;
+		Object.defineProperty(this, "token", { value: data.token });
+		this.applicationID = data.application_id;
+		this.channelID = data.channel_id ?? null;
+		this.guildID = data.guild_id ?? null;
+		const user = data.user ?? data.member.user;
+		const cache = this.client.users.cache.has(user.id);
+		this.user = this.client.users.add(user, cache);
+		this.member = data.member ? this.guild?.members.add(data.member, cache) ?? data.member : null;
+		this.version = data.version;
+	}
+};
+/* eslint guard-for-in: "off" */
+for(const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(It.prototype))) {
+	if(name === "constructor") { continue; }
+	Object.defineProperty(It2.prototype, name, descriptor);
+}
+require.cache[ItPath].exports = It2;
 
 const Action = require(resolve(require.resolve("discord.js").replace("index.js", "/client/actions/Action.js")));
 Action.prototype.getPayload = function(data, manager, id, partialType, cache) {

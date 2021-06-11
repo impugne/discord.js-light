@@ -1,7 +1,7 @@
 "use strict";
 
 const PacketHandlers = require("./handlers.js");
-const { Constants, Collection, Channel, DMChannel, Invite } = require("discord.js");
+const { Constants, Collection, Channel, DMChannel, Invite, GuildBan } = require("discord.js");
 
 module.exports = client => {
 	if(client.voice) {
@@ -105,6 +105,22 @@ module.exports = client => {
 			old: null,
 			updated: channel
 		};
+	};
+	client.actions.GuildBanAdd.handle = function(data) {
+		const guild = client.guilds.cache.get(data.guild_id) || client.guilds.add({
+			id: data.guild_id,
+			shardID: data.shardID
+		}, false);
+		client.emit(Constants.Events.GUILD_BAN_ADD, guild.bans.add(data));
+	};
+	client.actions.GuildBanRemove.handle = function(data) {
+		const guild = client.guilds.cache.get(data.guild_id) || client.guilds.add({
+			id: data.guild_id,
+			shardID: data.shardID
+		}, false);
+		const ban = guild.bans.cache.get(data.user.id) ?? new GuildBan(client, data, guild);
+		guild.bans.cache.delete(ban.user.id);
+		client.emit(Constants.Events.GUILD_BAN_REMOVE, ban);
 	};
 	client.actions.GuildDelete.handle = function(data) {
 		const c = this.client;
@@ -225,7 +241,7 @@ module.exports = client => {
 		if(data.user.username) {
 			const user = c.users.cache.get(data.user.id);
 			if(!user) {
-				if(c.options.fetchAllMembers) {
+				if(c.options.cacheMembers) {
 					c.users.add(data.user);
 				}
 			} else if(!user.equals(data.user)) {
@@ -263,7 +279,10 @@ module.exports = client => {
 			id: data.guild_id,
 			shardID: data.shardID
 		}, false);
-		const role = guild.roles.cache.get(data.role_id) || guild.roles.add({ id: data.role_id }, false);
+		const role = guild.roles.cache.get(data.role_id) || guild.roles.add({
+			id: data.role_id,
+			permissions: 0
+		}, false);
 		guild.roles.cache.delete(data.role_id);
 		role.deleted = true;
 		return { role };
@@ -296,6 +315,7 @@ module.exports = client => {
 			id: data.channel_id,
 			type: guild ? 0 : 1
 		}, guild, false);
+		if(!channel) { return; }
 		const invite = new Invite(c, Object.assign(data, {
 			channel,
 			guild
@@ -312,6 +332,7 @@ module.exports = client => {
 			id: data.channel_id,
 			type: guild ? 0 : 1
 		}, guild, false);
+		if(!channel) { return; }
 		const invite = new Invite(c, Object.assign(data, {
 			channel,
 			guild
@@ -424,7 +445,7 @@ module.exports = client => {
 				type: guild ? 0 : 1
 			}, guild, false);
 		}
-		const user = data.user || c.users.cache.get(data.user_id) || (data.member && data.member.user ? c.users.add(data.member.user, c.options.fetchAllMembers) : c.users.add({ id: data.user_id }, false));
+		const user = data.user || c.users.cache.get(data.user_id) || (data.member && data.member.user ? c.users.add(data.member.user, c.options.cacheMembers) : c.users.add({ id: data.user_id }, false));
 		const message = data.message || channel.messages.cache.get(data.message_id) || channel.messages.add({ id: data.message_id }, false);
 		const reaction = message.reactions.cache.get(data.emoji.id || data.emoji.name) || message.reactions.add({
 			emoji: data.emoji,
@@ -512,7 +533,7 @@ module.exports = client => {
 		}, false);
 		let presence = guild.presences.cache.get(data.user.id);
 		let old = null;
-		if(data.user.username && (c.options.fetchAllMembers || c.users.cache.has(data.user.id))) {
+		if(data.user.username && (c.options.cacheMembers || c.users.cache.has(data.user.id))) {
 			const user = c.users.cache.get(data.user.id);
 			if(!user || !user.equals(data.user)) {
 				c.actions.UserUpdate.handle(data.user);
@@ -527,7 +548,9 @@ module.exports = client => {
 		}
 		if(c.listenerCount(Constants.Events.PRESENCE_UPDATE)) {
 			if(!presence) { presence = guild.presences.add(Object.assign(data, { guild }), false); }
-			c.emit(Constants.Events.PRESENCE_UPDATE, old, presence);
+			if(!old || !presence.equals(old)) {
+				c.emit(Constants.Events.PRESENCE_UPDATE, old, presence);
+			}
 		}
 	};
 	client.actions.TypingStart.handle = function(data) {
@@ -553,7 +576,7 @@ module.exports = client => {
 				}
 			}
 		} else {
-			user = data.member && data.member.user ? client.users.add(data.member.user, client.options.fetchAllMembers) : client.users.add({ id: data.user_id }, false);
+			user = data.member && data.member.user ? client.users.add(data.member.user, client.options.cacheMembers) : client.users.add({ id: data.user_id }, false);
 		}
 		const timestamp = new Date(data.timestamp * 1000);
 		if(channel._typing.has(user.id)) {
@@ -580,7 +603,7 @@ module.exports = client => {
 		if(user) {
 			old = user._update(data);
 		} else {
-			user = c.users.add(data, c.options.fetchAllMembers);
+			user = c.users.add(data, c.options.cacheMembers);
 		}
 		return {
 			old,
@@ -606,7 +629,7 @@ module.exports = client => {
 			}
 		} else if(!user) {
 			if(data.member && data.member.user) {
-				user = client.users.add(data.member.user, c.options.fetchAllMembers);
+				user = client.users.add(data.member.user, c.options.cacheMembers);
 			} else {
 				user = client.users.add({ id: data.user_id }, false);
 			}
@@ -614,7 +637,7 @@ module.exports = client => {
 		const oldState = guild.voiceStates.cache.has(data.user_id) ? guild.voiceStates.cache.get(data.user_id)._clone() : null;
 		const newState = data.channel_id ? guild.voiceStates.add(data) : null;
 		if(oldState && !newState) { guild.voiceStates.cache.delete(data.user_id); }
-		if((c.options.fetchAllMembers || c.users.cache.has(data.user_id)) && data.member) { guild.members.add(data.member); }
+		if((c.options.cacheMembers || c.users.cache.has(data.user_id)) && data.member) { guild.members.add(data.member); }
 		if(oldState || newState) { c.emit(Constants.Events.VOICE_STATE_UPDATE, oldState, newState); }
 		if(data.user_id === c.user.id) {
 			c.emit("debug", `[VOICE] received voice state update: ${JSON.stringify(data)}`);
