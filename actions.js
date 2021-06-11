@@ -329,8 +329,7 @@ module.exports = client => {
          type: guild ? 0 : 1
       }, guild, false);
       if (channel?.messages) {
-         const message = channel.messages?.add(data, c.channels.cache.has(channel.id));
-         if (!message) return {};
+         const message = channel.messages.add(data, c.channels.cache.has(channel.id));
          channel.lastMessageID = data.id;
          if (message.author) {
             message.author.lastMessageID = data.id;
