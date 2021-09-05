@@ -25,9 +25,6 @@
 		"url": "https://patreon.com/timotejroiko"
 	},
 	"license": "Apache-2.0",
-	"dependencies": {
-		"discord.js": "github:slow/discord.js"
-	},
 	"engines": {
 		"node": ">=14.0.0"
 	},
