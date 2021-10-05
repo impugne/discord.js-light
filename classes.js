@@ -144,7 +144,7 @@ Discord.Structures.extend("Guild", G => {
                   this.members.add(member);
                }
             }
-            if (!this.members.cache.has(this.client.user.id)) {
+            if (this.client.user?.id && !this.members.cache.has(this.client.user.id)) {
                this.members.fetch(this.client.user.id).catch(() => { });
             }
          }
